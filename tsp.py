@@ -16,6 +16,27 @@ def printHelp():
   print "third integers should be the coordinates of the city."
   print
 
+def tsp(citiesMatrix):
+
+  best = []
+  best.append(sys.maxint)
+
+  cities = citiesMatrix.keys()
+  for city1 in cities:
+
+    tmp = []
+    tmp.append(0)
+
+    for city2 in cities:
+      if city1 != city2:
+        tmp[0] = tmp[0] + citiesMatrix[city1][city2]
+        tmp.append(city2)
+
+    if tmp[0] < best[0]:
+      best = tmp
+
+  return best
+
 def dist(a,b):
     # a and b are integer pairs (each representing a point in a 2D, integer grid)
     # Euclidean distance rounded to the nearest integer:
@@ -74,32 +95,17 @@ def main(argv):
     (cityid, xcoord, ycoord) = line.rsplit()
     cities.append((int(cityid), int(xcoord), int(ycoord)))
 
+  inputFile.close()
+
   citiesMatrix = buildMatrix(cities)
 
-  #print citiesMatrix
   results = tsp(citiesMatrix)
-  print results
+  outputFile = open(args[0] + ".tour", "w")
 
-def tsp(citiesMatrix):
+  for result in results:
+    outputFile.write(str(result) + os.linesep)
 
-  best = []
-  best.append(sys.maxint)
-
-  cities = citiesMatrix.keys()
-  for city1 in cities:
-
-    tmp = []
-    tmp.append(0)
-
-    for city2 in cities:
-      if city1 != city2:
-        tmp[0] = tmp[0] + citiesMatrix[city1][city2]
-        tmp.append(city2)
-
-    if tmp[0] < best[0]:
-      best = tmp
-
-  return best
+  outputFile.close()
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
