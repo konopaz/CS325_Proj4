@@ -26,11 +26,15 @@ def tsp(citiesMatrix):
 
     tmp = []
     tmp.append(0)
+    tmp.append(city1)
 
     for city2 in cities:
-      if city1 != city2:
+      if citiesMatrix[city1][city2] >= 0:
         tmp[0] = tmp[0] + citiesMatrix[city1][city2]
         tmp.append(city2)
+        returnDist = citiesMatrix[city2][city1]
+
+    tmp[0] = tmp[0] + returnDist
 
     if tmp[0] < best[0]:
       best = tmp
