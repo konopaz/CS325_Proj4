@@ -23,6 +23,23 @@ def dist(a,b):
     dy = a[1]-b[1]
     #return int(math.sqrt(dx*dx + dy*dy)+0.5) # equivalent to the next line
     return int(round(math.sqrt(dx*dx + dy*dy)))
+
+def buildMatrix(cities):
+
+  citiesMatrix = {}
+  for city1 in cities:
+    citiesMatrix[city1[0]] = {}
+
+    for city2 in cities:
+      if city1[0] == city2[0]:
+        d = -1 # we'll interpret this as an "impossible" route
+      else:
+        d = dist((city1[1], city1[2]), (city2[1], city2[2]))
+
+      citiesMatrix[city1[0]][city2[0]] = d
+
+  return citiesMatrix
+
 def main(argv):
 
   try:
@@ -46,7 +63,6 @@ def main(argv):
 
  
   cities = []
-  citiesMatrix = {}
   inputFile = open(args[0])
 
   while 1:
@@ -56,20 +72,34 @@ def main(argv):
       break
 
     (cityid, xcoord, ycoord) = line.rsplit()
-    cities.append((cityid, int(xcoord), int(ycoord)))
+    cities.append((int(cityid), int(xcoord), int(ycoord)))
 
+  citiesMatrix = buildMatrix(cities)
+
+  #print citiesMatrix
+  results = tsp(citiesMatrix)
+  print results
+
+def tsp(citiesMatrix):
+
+  best = []
+  best.append(sys.maxint)
+
+  cities = citiesMatrix.keys()
   for city1 in cities:
-    citiesMatrix[city1[0]] = {}
+
+    tmp = []
+    tmp.append(0)
 
     for city2 in cities:
-      if city1[0] == city2[0]:
-        d = 0
-      else:
-        d = dist((city1[1], city1[2]), (city2[1], city2[2]))
+      if city1 != city2:
+        tmp[0] = tmp[0] + citiesMatrix[city1][city2]
+        tmp.append(city2)
 
-      citiesMatrix[city1[0]][city2[0]] = d
+    if tmp[0] < best[0]:
+      best = tmp
 
-  print citiesMatrix
+  return best
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
