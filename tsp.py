@@ -1,6 +1,151 @@
 #!/usr/bin/python
 
-import sys, os, getopt, math
+import sys, os, getopt, math, time, copy
+from Queue import PriorityQueue
+
+def calcDist(pointA, pointB):
+    dx = pointA.x - pointB.x
+    dy = pointA.y - pointB.y
+    return int(round(math.sqrt(dx*dx + dy*dy)))
+
+class Point:
+
+  distMatrix = {}
+
+  def __init__(self, id, x, y):
+    self.id = id
+    self.x = x
+    self.y = y
+
+  def distanceTo(self, other):
+
+    if self.id in Point.distMatrix and other.id in Point.distMatrix[self.id]:
+      return Point.distMatrix[self.id][other.id]
+
+    dx = self.x - other.x
+    dy = self.y - other.y
+    dist = int(round(math.sqrt(dx*dx + dy*dy)))
+
+    if self.id not in Point.distMatrix:
+      Point.distMatrix[self.id] = {}
+
+    if other.id not in Point.distMatrix:
+      Point.distMatrix[other.id] = {}
+
+    Point.distMatrix[self.id][other.id] = dist
+    Point.distMatrix[other.id][self.id] = dist
+
+    return dist
+
+  def __eq__(self, other):
+    return self.id == other.id
+
+  def __str__(self):
+    return "(" + str(self.id) + ":" + str(self.x) + \
+      "," + str(self.y) + ")"
+
+class Path:
+
+  def __init__(self, firstPoint):
+    self.path = []
+    self.path.append(firstPoint)
+    self.pointsHash = {}
+    self.pointsHash[firstPoint.id] = 1;
+    self.dist = 0
+
+  def distance(self):
+    return self.dist + self.path[-1].distanceTo(self.path[0])
+
+  def size(self):
+    return len(self.path)
+
+  def addPoint(self, point):
+    self.dist = self.dist + self.path[-1].distanceTo(point)
+    self.path.append(point)
+    self.pointsHash[point.id] = 1
+
+  def containsPoint(self, point):
+    return point.id in self.pointsHash
+
+  def copy(self):
+    copiedPath = Path(self.path[0])
+    copiedPath.path = self.path[:]
+    copiedPath.dist = self.dist
+    copiedPath.pointsHash = copy.deepcopy(self.pointsHash)
+    return copiedPath
+
+  def __cmp__(self, other):
+    if other == None:
+      return -1
+    return self.distance() - other.distance()
+
+  def __str__(self):
+    s = str(self.path[0])
+    for point in self.path[1:]:
+      s = s + ">" + str(point)
+    s = s + ">" + str(self.path[0])
+    return s
+
+class PathFinder:
+  
+  def __init__(self, pointsList):
+    self.points = pointsList
+
+  def findBestPath(self, seconds):
+
+    #Handle some of the trivial cases
+    if len(self.points) == 0:
+      return None
+
+    if len(self.points) == 1:
+      return Path(self.points[0])
+
+    if len(self.points) == 2:
+      path = Path(self.points[0])
+      path.addPoint(self.points[1])
+      return path
+
+    if len(self.points) == 3:
+      path = Path(self.points[0])
+      path.addPoint(self.points[1])
+      path.addPoint(self.points[2])
+      return path
+
+    #Now it starts to get interesting
+    bestPath = None
+
+    priorityQ = PriorityQueue()
+    for point in self.points:
+      priorityQ.put(Path(point))
+
+    start = time.clock()
+
+    while not priorityQ.empty() and time.clock() - start <= seconds:
+
+      tmpPath = priorityQ.get()
+
+      if bestPath != None and bestPath <= tmpPath:
+        pass
+
+      else:
+
+        if self.isComplete(tmpPath):
+          if bestPath == None or bestPath > tmpPath:
+            bestPath = tmpPath
+        else:
+          for point in self.points:
+            if not tmpPath.containsPoint(point):
+              tmpPath2 = tmpPath.copy()
+              tmpPath2.addPoint(point)
+              priorityQ.put(tmpPath2)
+      
+    return bestPath
+
+  def isComplete(self, path):
+    for point in self.points:
+      if not path.containsPoint(point):
+        return False
+    return True
 
 def printHelp():
   print
@@ -16,67 +161,22 @@ def printHelp():
   print "third integers should be the coordinates of the city."
   print
 
-def tsp(citiesMatrix):
-
-  best = []
-  best.append(sys.maxint)
-
-  cities = citiesMatrix.keys()
-  for city1 in cities:
-
-    tmp = []
-    tmp.append(0)
-    tmp.append(city1)
-
-    for city2 in cities:
-      if citiesMatrix[city1][city2] >= 0:
-        tmp[0] = tmp[0] + citiesMatrix[city1][city2]
-        tmp.append(city2)
-        returnDist = citiesMatrix[city2][city1]
-
-    tmp[0] = tmp[0] + returnDist
-
-    if tmp[0] < best[0]:
-      best = tmp
-
-  return best
-
-def dist(a,b):
-    # a and b are integer pairs (each representing a point in a 2D, integer grid)
-    # Euclidean distance rounded to the nearest integer:
-    dx = a[0]-b[0]
-    dy = a[1]-b[1]
-    #return int(math.sqrt(dx*dx + dy*dy)+0.5) # equivalent to the next line
-    return int(round(math.sqrt(dx*dx + dy*dy)))
-
-def buildMatrix(cities):
-
-  citiesMatrix = {}
-  for city1 in cities:
-    citiesMatrix[city1[0]] = {}
-
-    for city2 in cities:
-      if city1[0] == city2[0]:
-        d = -1 # we'll interpret this as an "impossible" route
-      else:
-        d = dist((city1[1], city1[2]), (city2[1], city2[2]))
-
-      citiesMatrix[city1[0]][city2[0]] = d
-
-  return citiesMatrix
-
 def main(argv):
 
   try:
-    opts, args = getopt.getopt(argv, "ha:", ["help", "algorithm="])
+    opts, args = getopt.getopt(argv, "hm:", ["help", "minutes="])
   except getopt.GetoptError:
     printHelp()
     exit(2)
+
+  minutes = 5
 
   for opt in opts:
     if opt[0] == "--help" or opt[0] == "-h":
       printHelp()
       exit(1)
+    elif opt[0] == "--minutes" or opt[0] == "-m":
+      minutes = int(opt[1])
     else:
       print "Invalid option: ", opt[0]
       printHel()
@@ -87,7 +187,7 @@ def main(argv):
     exit(1)
 
  
-  cities = []
+  points = []
   inputFile = open(args[0])
 
   while 1:
@@ -96,20 +196,31 @@ def main(argv):
     if not line:
       break
 
-    (cityid, xcoord, ycoord) = line.rsplit()
-    cities.append((int(cityid), int(xcoord), int(ycoord)))
+    (pointid, xcoord, ycoord) = line.rsplit()
+    points.append(Point(int(pointid), int(xcoord), int(ycoord)))
 
   inputFile.close()
 
-  citiesMatrix = buildMatrix(cities)
+  print "Starting run on", len(points), "data points..."
+  startTime = time.clock()
 
-  results = tsp(citiesMatrix)
-  outputFile = open(args[0] + ".tour", "w")
+  pathFinder = PathFinder(points)
+  bestPath = pathFinder.findBestPath(minutes * 60)
 
-  for result in results:
-    outputFile.write(str(result) + os.linesep)
+  if bestPath == None:
+    print "Couldn't find a good path in that time."
 
-  outputFile.close()
+  print "Finished in ", (time.clock() - startTime)
+
+  if bestPath != None:
+
+    outputFile = open(args[0] + ".tour", "w")
+    outputFile.write(str(bestPath.distance()) + os.linesep)
+
+    for point in bestPath.path:
+      outputFile.write(str(point.id) + os.linesep)
+
+    outputFile.close()
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
