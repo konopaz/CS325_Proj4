@@ -1,151 +1,8 @@
 #!/usr/bin/python
 
-import sys, os, getopt, math, time, copy
-from Queue import PriorityQueue
-
-def calcDist(pointA, pointB):
-    dx = pointA.x - pointB.x
-    dy = pointA.y - pointB.y
-    return int(round(math.sqrt(dx*dx + dy*dy)))
-
-class Point:
-
-  distMatrix = {}
-
-  def __init__(self, id, x, y):
-    self.id = id
-    self.x = x
-    self.y = y
-
-  def distanceTo(self, other):
-
-    if self.id in Point.distMatrix and other.id in Point.distMatrix[self.id]:
-      return Point.distMatrix[self.id][other.id]
-
-    dx = self.x - other.x
-    dy = self.y - other.y
-    dist = int(round(math.sqrt(dx*dx + dy*dy)))
-
-    if self.id not in Point.distMatrix:
-      Point.distMatrix[self.id] = {}
-
-    if other.id not in Point.distMatrix:
-      Point.distMatrix[other.id] = {}
-
-    Point.distMatrix[self.id][other.id] = dist
-    Point.distMatrix[other.id][self.id] = dist
-
-    return dist
-
-  def __eq__(self, other):
-    return self.id == other.id
-
-  def __str__(self):
-    return "(" + str(self.id) + ":" + str(self.x) + \
-      "," + str(self.y) + ")"
-
-class Path:
-
-  def __init__(self, firstPoint):
-    self.path = []
-    self.path.append(firstPoint)
-    self.pointsHash = {}
-    self.pointsHash[firstPoint.id] = 1;
-    self.dist = 0
-
-  def distance(self):
-    return self.dist + self.path[-1].distanceTo(self.path[0])
-
-  def size(self):
-    return len(self.path)
-
-  def addPoint(self, point):
-    self.dist = self.dist + self.path[-1].distanceTo(point)
-    self.path.append(point)
-    self.pointsHash[point.id] = 1
-
-  def containsPoint(self, point):
-    return point.id in self.pointsHash
-
-  def copy(self):
-    copiedPath = Path(self.path[0])
-    copiedPath.path = self.path[:]
-    copiedPath.dist = self.dist
-    copiedPath.pointsHash = copy.deepcopy(self.pointsHash)
-    return copiedPath
-
-  def __cmp__(self, other):
-    if other == None:
-      return -1
-    return self.distance() - other.distance()
-
-  def __str__(self):
-    s = str(self.path[0])
-    for point in self.path[1:]:
-      s = s + ">" + str(point)
-    s = s + ">" + str(self.path[0])
-    return s
-
-class PathFinder:
-  
-  def __init__(self, pointsList):
-    self.points = pointsList
-
-  def findBestPath(self, seconds):
-
-    #Handle some of the trivial cases
-    if len(self.points) == 0:
-      return None
-
-    if len(self.points) == 1:
-      return Path(self.points[0])
-
-    if len(self.points) == 2:
-      path = Path(self.points[0])
-      path.addPoint(self.points[1])
-      return path
-
-    if len(self.points) == 3:
-      path = Path(self.points[0])
-      path.addPoint(self.points[1])
-      path.addPoint(self.points[2])
-      return path
-
-    #Now it starts to get interesting
-    bestPath = None
-
-    priorityQ = PriorityQueue()
-    for point in self.points:
-      priorityQ.put(Path(point))
-
-    start = time.clock()
-
-    while not priorityQ.empty() and time.clock() - start <= seconds:
-
-      tmpPath = priorityQ.get()
-
-      if bestPath != None and bestPath <= tmpPath:
-        pass
-
-      else:
-
-        if self.isComplete(tmpPath):
-          if bestPath == None or bestPath > tmpPath:
-            bestPath = tmpPath
-        else:
-          for point in self.points:
-            if not tmpPath.containsPoint(point):
-              tmpPath2 = tmpPath.copy()
-              tmpPath2.addPoint(point)
-              priorityQ.put(tmpPath2)
-      
-    return bestPath
-
-  def isComplete(self, path):
-    for point in self.points:
-      if not path.containsPoint(point):
-        return False
-    return True
+import sys, os, getopt, math, time
+from collections import deque
+from UnionFind import UnionFind
 
 def printHelp():
   print
@@ -160,6 +17,27 @@ def printHelp():
   print "by a space. The first integer is the id of the city. The second and "
   print "third integers should be the coordinates of the city."
   print
+
+def distance(a,b):
+    # a and b are integer pairs (each representing a point in a 2D, integer grid)
+    # Euclidean distance rounded to the nearest integer:
+    dx = a[0]-b[0]
+    dy = a[1]-b[1]
+    #return int(math.sqrt(dx*dx + dy*dy)+0.5) # equivalent to the next line
+    return int(round(math.sqrt(dx*dx + dy*dy)))
+
+def calculatePathCost(graph, nodes):
+
+  cost = 0
+
+  here = nodes[0]
+  for thereIdx in range(1, len(nodes)):
+  
+    cost = cost + graph[here][nodes[thereIdx]]
+    here = nodes[thereIdx]
+
+  return cost + graph[nodes[thereIdx]][0]
+
 
 def main(argv):
 
@@ -197,30 +75,98 @@ def main(argv):
       break
 
     (pointid, xcoord, ycoord) = line.rsplit()
-    points.append(Point(int(pointid), int(xcoord), int(ycoord)))
+    points.append([int(pointid), int(xcoord), int(ycoord)])
 
   inputFile.close()
 
   print "Starting run on", len(points), "data points..."
   startTime = time.clock()
 
-  pathFinder = PathFinder(points)
-  bestPath = pathFinder.findBestPath(minutes * 60)
+  # Now build a graph of the points
+  graph = {}
+  for pointA in points:
+    graph[pointA[0]] = {}
+    for pointB in points:
+      if pointA[0] == pointB[0]:
+        graph[pointA[0]][pointB[0]] = sys.maxint
+      else:
+        graph[pointA[0]][pointB[0]] = distance([pointA[1], pointA[2]], (pointB[1], pointB[2]))
+ 
 
-  if bestPath == None:
-    print "Couldn't find a good path in that time."
+  # Use Kruskal's to build the MST
+  subtrees = UnionFind()
+  tree = []
+  for W,u,v in sorted((graph[u][v],u,v) for u in graph for v in graph[u]):
+    if subtrees[u] != subtrees[v]:
+      tree.append((u,v))
+      subtrees.union(u,v)
 
+  # Preorder traverse the MST
+  queue = deque()
+  queue.append(points[0][0])
+  mstPath = []
+
+  alreadyInMst = {}
+  for point in points:
+    alreadyInMst[point[0]] = False
+
+  while len(queue) > 0:
+
+    pointA = queue.pop()
+    mstPath.append(pointA)
+    alreadyInMst[pointA] = True
+
+    for edge in tree:
+      if edge[0] == pointA and not alreadyInMst[edge[1]]:
+        queue.append(edge[1])
+      elif edge[1] == pointA and not alreadyInMst[edge[0]]:
+        queue.append(edge[0])
+
+
+  path = mstPath
+  pathCost = calculatePathCost(graph, path)
+
+  while True:
+
+    hasChanged = False
+
+    for i in range(0, len(path) - 1):
+
+      for j in range(i + 1, len(path)):
+
+        if i != j:
+
+          newPath = path[i:j]
+          tmpPath = path[j:]
+          tmpPath.reverse()
+          newPath.extend(tmpPath)
+          newPath.extend(path[:i])
+          newPathCost = calculatePathCost(graph, newPath)
+
+          if newPathCost < pathCost:
+
+            path = newPath
+            pathCost = newPathCost
+            hasChanged = True
+            break
+
+        if hasChanged:
+          break
+
+    if not hasChanged:
+      break
+
+  print "Final path:", path
+  print "Final path cost:", pathCost
   print "Finished in ", (time.clock() - startTime)
 
-  if bestPath != None:
+  outputFile = open(args[0] + ".tour", "w")
+  outputFile.write(str(pathCost) + os.linesep)
 
-    outputFile = open(args[0] + ".tour", "w")
-    outputFile.write(str(bestPath.distance()) + os.linesep)
+  for point in path:
+    outputFile.write(str(point) + os.linesep)
 
-    for point in bestPath.path:
-      outputFile.write(str(point.id) + os.linesep)
-
-    outputFile.close()
+  outputFile.close()
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
