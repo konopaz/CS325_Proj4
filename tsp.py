@@ -87,12 +87,11 @@ def main(argv):
 
   inputFile.close()
 
-  print "Starting run on", len(points), "data points..."
+  print "Starting run on", len(points), "data points."
   startTime = time.clock()
 
   print "Bulding memo table of distances..."
   graph = buildGraphDistanceTable(points)
-  print "... finished memo table."
 
   print "Building MST to generate initial path..."
   # Use Kruskal's to build the MST
@@ -128,7 +127,7 @@ def main(argv):
   path = mstPath
   pathCost = calculatePathCost(graph, path)
 
-  print "...finished building initial path."
+  print "Starting 2-opt hueristics to improve MST path...",
 
   while True:
 
