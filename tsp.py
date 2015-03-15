@@ -127,7 +127,7 @@ def main(argv):
   path = mstPath
   pathCost = calculatePathCost(graph, path)
 
-  print "Starting 2-opt hueristics to improve MST path...",
+  print "Starting 2-opt hueristics to improve MST path..."
 
   while True:
 
