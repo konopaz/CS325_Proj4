@@ -26,17 +26,25 @@ def distance(a,b):
     #return int(math.sqrt(dx*dx + dy*dy)+0.5) # equivalent to the next line
     return int(round(math.sqrt(dx*dx + dy*dy)))
 
+def buildGraphDistanceTable(points):
+  # points - list of 3 element lists (id, x, y)
+  graph = {}
+  for pointA in points:
+    graph[pointA[0]] = {}
+    for pointB in points:
+      if pointA[0] == pointB[0]:
+        graph[pointA[0]][pointB[0]] = sys.maxint
+      else:
+        graph[pointA[0]][pointB[0]] = distance([pointA[1], pointA[2]], (pointB[1], pointB[2]))
+  return graph
+
 def calculatePathCost(graph, nodes):
 
   cost = 0
+  for i in range(len(nodes)):
+    cost = cost + graph[nodes[i]][nodes[i-1]]
 
-  here = nodes[0]
-  for thereIdx in range(1, len(nodes)):
-  
-    cost = cost + graph[here][nodes[thereIdx]]
-    here = nodes[thereIdx]
-
-  return cost + graph[nodes[thereIdx]][0]
+  return cost
 
 
 def main(argv):
@@ -82,17 +90,11 @@ def main(argv):
   print "Starting run on", len(points), "data points..."
   startTime = time.clock()
 
-  # Now build a graph of the points
-  graph = {}
-  for pointA in points:
-    graph[pointA[0]] = {}
-    for pointB in points:
-      if pointA[0] == pointB[0]:
-        graph[pointA[0]][pointB[0]] = sys.maxint
-      else:
-        graph[pointA[0]][pointB[0]] = distance([pointA[1], pointA[2]], (pointB[1], pointB[2]))
- 
+  print "Bulding memo table of distances..."
+  graph = buildGraphDistanceTable(points)
+  print "... finished memo table."
 
+  print "Building MST to generate initial path..."
   # Use Kruskal's to build the MST
   subtrees = UnionFind()
   tree = []
@@ -126,7 +128,13 @@ def main(argv):
   path = mstPath
   pathCost = calculatePathCost(graph, path)
 
+  print "...finished building initial path."
+
   while True:
+
+    if (time.clock() - startTime) > (minutes * 60):
+      print "Hitting time limit. Returning best so far."
+      break
 
     hasChanged = False
 
